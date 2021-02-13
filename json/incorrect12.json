@@ -1,11 +1,11 @@
 {
   "keywords": [
-    "openstack",
+    "openstack pepe luis",
     "nova",
     "css"
   ],
   "proxies": [
-	"51.158.165.18:8811"
+	"192.168.1.92:8080"
   ],
   "type": "Repositories"
 }
