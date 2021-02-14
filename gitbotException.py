@@ -18,7 +18,8 @@ class GitbotException(Exception):
         14: 'Could not verify proxies, list is not correct: {0}',
         15: 'Keyword entry must be a single one, not a list: {0}',
         16: 'Exception connecting or parsing HTML: {0}',
-        17: 'Should provide a directory as argument'
+        17: 'Should provide a directory as argument',
+        18: 'Error decoding JSON in HTML {0}'
     }
     
     def __init__(self,code,*extra):

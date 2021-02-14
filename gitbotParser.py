@@ -4,11 +4,13 @@ import ipaddress
 import requests
 import requests
 import random
+from concurrent.futures import ThreadPoolExecutor
 from xml.sax import make_parser,handler
 import urllib3
 from gitbotException import GitbotException
 from gitbotSaxParser import GitbotSaxParser
 from gitbotHtmlParser import GitbotHtmlParser
+from gitbotExtraParser import GitbotExtraParser
         
 #### Gitbot parser class
 class Gitbot():
@@ -67,21 +69,20 @@ class Gitbot():
     
     def scrapeData(self,url,parameters,proxy,htmlParser):
         try:
-            r = requests.get(url, 
+            response = requests.get(url, 
                  proxies={'http' : 'http://' + proxy, 'https' : 'https://' + proxy}, 
-                 timeout=20, params=parameters, stream=True)    
+                 timeout=10, params=parameters, stream=True)    
              
         #https://github.com/psf/requests/issues/5297
         except urllib3.exceptions.ProxySchemeUnknown:
-                r = requests.get(url, 
+                response = requests.get(url, 
                 proxies={'http' :proxy,
                              'https' : proxy}, 
-                timeout=20,
-                params=parameters, stream=True)          
+                timeout=10,params=parameters, stream=True)          
 
-        r.raw.decode_content = True
+        response.encoding = 'utf-8'
       
-        for chunk in r.iter_content(1024):
+        for chunk in response.iter_content(decode_unicode=True):
             htmlParser.feed(str(chunk))
             
         data = htmlParser.getData()
@@ -116,6 +117,34 @@ class Gitbot():
             htmlParser = GitbotHtmlParser()
             generalData =  self.scrapeData(Gitbot.GITHUB_SEARCH_URL,parameters,proxy,htmlParser)
             htmlParser.reset()
+            
+            #Lets check for extra info in Repositories
+            #Lets do it in parallel
+            if self.typeSearch == 'Repositories':
+                futures = []
+                results = []
+                with ThreadPoolExecutor(max_workers=4) as executor:
+                    
+                    for urlDict in generalData:
+                        url = urlDict['url']
+                        future = executor.submit(self.scrapeData,url,None,proxy,GitbotExtraParser())
+                        futures.append(future)
+                
+                count = 0
+                for future in futures:
+                    languages_and_pctgs = iter(future.result())
+                    currentRepo = generalData[count]
+                    currentRepo['extra'] = {}
+                    currentRepo['extra']['owner'] = currentRepo['url'].split("/")[3]
+                    currentRepo['extra']['language_stats'] = {}
+                    stats = currentRepo['extra']['language_stats']
+                    for it in languages_and_pctgs:
+                        lang = it
+                        pctg = next(languages_and_pctgs)
+                        #Removing pctg, converting into float
+                        stats[lang] = float(pctg.replace('%',''))
+                    count += 1
+
             return generalData
 
         #Something went wrong, probably preParse was not invoked first                

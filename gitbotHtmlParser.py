@@ -1,5 +1,6 @@
 from html.parser import HTMLParser
 import json
+from gitbotException import GitbotException
 class GitbotHtmlParser(HTMLParser):
 
     def __init__(self):
@@ -20,8 +21,8 @@ class GitbotHtmlParser(HTMLParser):
                     info = value
             if hasInfo:
                 #We are near our target, event_type must be search.result.type
-                jsonInfo = json.loads(info)
                 try:
+                    jsonInfo = json.loads(info)
                     #And also event_type must be search_result.click
                     if jsonInfo['event_type'] == 'search_result.click':
                         result = jsonInfo['payload']['result']
@@ -30,6 +31,8 @@ class GitbotHtmlParser(HTMLParser):
                         }
                         self.data.append(newData)
                 #In case it has no event_type (we don't care)    
+                except json.decoder.JSONDecodeError as jse:
+                    raise GitbotException(18,info)
                 except Exception as e:
                     pass
 
