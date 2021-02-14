@@ -65,6 +65,28 @@ class Gitbot():
                     raise GitbotException(5)        
         return True
     
+    def scrapeData(self,url,parameters,proxy,htmlParser):
+        try:
+            r = requests.get(url, 
+                 proxies={'http' : 'http://' + proxy, 'https' : 'https://' + proxy}, 
+                 timeout=20, params=parameters, stream=True)    
+             
+        #https://github.com/psf/requests/issues/5297
+        except urllib3.exceptions.ProxySchemeUnknown:
+                r = requests.get(url, 
+                proxies={'http' :proxy,
+                             'https' : proxy}, 
+                timeout=20,
+                params=parameters, stream=True)          
+
+        r.raw.decode_content = True
+      
+        for chunk in r.iter_content(1024):
+            htmlParser.feed(str(chunk))
+            
+        data = htmlParser.getData()
+        return data
+
     def parse(self):
         """
         Processing itself, will take the configuration loaded before,
@@ -87,49 +109,14 @@ class Gitbot():
             #We've got a proxy, let's connect 
             parameters = {'q': "+".join(self.keywords),'type': self.typeSearch}
 
-            #Wanted to try with SAX parser, and stream request
-            #But SAX fails with HTML attributes with no value
-            """
-            saxParser = make_parser()
-            saxParser.setFeature(handler.feature_namespaces, False)
-            saxParser.setFeature(handler.feature_validation, False)
-            saxParser.setFeature(handler.feature_external_ges, True)
-            gitbotHandler = GitbotSaxParser()
-            saxParser.setContentHandler(gitbotHandler)
-            saxParser.setErrorHandler(gitbotHandler)
-            saxParser.setEntityResolver(None)
-            """
-            try:
-                r = requests.get(Gitbot.GITHUB_SEARCH_URL, 
-                    proxies={'http' : 'http://' + proxy,
-                             'https' : 'https://' + proxy}, 
-                    timeout=20,
-                    params=parameters, stream=True)    
-             
-            #https://github.com/psf/requests/issues/5297
-            except urllib3.exceptions.ProxySchemeUnknown:
-                r = requests.get(Gitbot.GITHUB_SEARCH_URL, 
-                proxies={'http' :proxy,
-                             'https' : proxy}, 
-                timeout=20,
-                params=parameters, stream=True)          
-
-            r.raw.decode_content = True
-            #Unfortunately, it does not work for SAX
-            """
-            for chunk in r.iter_content(1024):
-                saxParser.feed(chunk)
-            """
+            #Full data = generalData + extra
+            data = []
 
             #Let's use anoter strategy
             htmlParser = GitbotHtmlParser()
-            for chunk in r.iter_content(1024):
-                htmlParser.feed(str(chunk))
-            
-            data = htmlParser.getData()
+            generalData =  self.scrapeData(Gitbot.GITHUB_SEARCH_URL,parameters,proxy,htmlParser)
             htmlParser.reset()
-
-            return data
+            return generalData
 
         #Something went wrong, probably preParse was not invoked first                
         else:

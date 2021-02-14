@@ -33,15 +33,18 @@ if __name__ == '__main__':
                         parser = Gitbot([sys.argv[0],os.path.join(sys.argv[1],fich)])
                         parser.preParse()
                         data = parser.parse()
-                        sys.stdout.write(json.dumps(data))
+                        sys.stdout.write(json.dumps(data,indent=4))
                         sys.stdout.flush()
                         exit_status = 0  
                         count_success += 1
                     except GitbotException as e:
                         sys.stderr.write(e.message+'\n')
+                        sys.stderr.flush()
                         count_errors += 1
                     except Exception as e:
-                        traceback.print_exc(file=sys.stderr,limit=1)
+                        sys.stderr.write(str(e)+'\n')
+                        sys.stderr.flush()
                         count_errors += 1
         except GitbotException as gbe:
             sys.stderr.write(gbe.message+'\n')
+            sys.stderr.flush()
